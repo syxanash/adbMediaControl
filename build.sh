@@ -8,7 +8,7 @@ SOURCE_FILE="main.swift"
 
 killall "$BINARY_NAME" 2>/dev/null
 
-echo "🔨 Building..."
+echo "🔨 Building $APP_NAME ..."
 swiftc "$SOURCE_FILE" -o "$BINARY_NAME"
 
 mkdir -p "$APP_NAME/Contents/MacOS"

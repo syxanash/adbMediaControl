@@ -124,6 +124,7 @@ let callback: CGEventTapCallBack = { (proxy, type, event, refcon) in
 // SETUP & RUNLOOP
 
 let mask = (1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.keyUp.rawValue)
+
 guard let eventTap = CGEvent.tapCreate(
     tap: .cgSessionEventTap,
     place: .headInsertEventTap,
@@ -156,6 +157,9 @@ let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap,
 CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
 CGEvent.tapEnable(tap: eventTap, enable: true)
 
-print("ADB Media Control running...")
+let app = NSApplication.shared
+DispatchQueue.main.async {
+    print("ADB Media Control + Mouse Driver Active...")
+}
 
-CFRunLoopRun()
+app.run()
