@@ -159,7 +159,25 @@ CGEvent.tapEnable(tap: eventTap, enable: true)
 
 let app = NSApplication.shared
 DispatchQueue.main.async {
-    print("ADB Media Control + Mouse Driver Active...")
+    let alert = NSAlert()
+    alert.messageText = "ADB Media Control"
+    alert.informativeText = "The driver is now running in the background..."
+    alert.alertStyle = .informational
+    alert.addButton(withTitle: "Ok")
+
+    // This shows the alert window WITHOUT stopping the code execution
+    alert.layout()
+    alert.window.center()
+    alert.window.makeKeyAndOrderFront(nil)
+
+    let response = alert.runModal()
+
+    if response == .alertFirstButtonReturn {
+       print("ADB Media Control Driver Active...")
+    }
+    
+    // Optional: Bring it to the very front so the user sees it
+    NSApp.activate(ignoringOtherApps: true)
 }
 
 app.run()
