@@ -12,6 +12,8 @@ let kNumpadEqual: Int64 = 81 // Pause
 let kNumpadSlash: Int64 = 75 // Next Song
 let kNumpadDot: Int64 = 65   // dot sign
 let kNumpad1: Int64 = 83     // 1 numpad
+let kNumpad2: Int64 = 84     // 2 numpad
+let kNumpad3: Int64 = 85     // 3 numpad
 
 let kSlash: Int64 = 42 // acts as a left mouse click
 let kTick: Int64 = 50  // acts as a right mouse click
@@ -44,7 +46,9 @@ let keyMap: [Int64: KeyAction] = [
     kNumpadEqual: .media(NX_KEYTYPE_PREVIOUS),
     kNumpadSlash: .media(NX_KEYTYPE_NEXT),
     kNumpadDot: .media(NX_KEYTYPE_MUTE),
-    kNumpad1: .app(["-a", "/Applications/Firefox.app", "-g", "http://simone.computer"])
+    kNumpad1: .app(["-a", "/Applications/Firefox.app", "-g", "http://simone.computer"]),
+    kNumpad2: .app(["-a", "/Applications/Spotify.app"]),
+    kNumpad3: .app(["-a", "/Applications/WhatsApp.app"])
 ]
 
 var modifierIsDown = false
