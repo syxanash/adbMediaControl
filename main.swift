@@ -2,18 +2,17 @@ import Foundation
 import CoreGraphics
 import AppKit
 
-// Key codes
+// Constants & Key Codes
 let kF13: Int64 = 105
-
-let kNumpadPlus: Int64  = 69 // Volume Up
-let kNumpadMinus: Int64 = 78 // Volume Down
-let kNumpadStar: Int64  = 67 // Play
-let kNumpadEqual: Int64 = 81 // Pause
-let kNumpadSlash: Int64 = 75 // Next Song
-let kNumpadDot: Int64 = 65   // dot sign
-let kNumpad1: Int64 = 83     // 1 numpad
-let kNumpad2: Int64 = 84     // 2 numpad
-let kNumpad3: Int64 = 85     // 3 numpad
+let kNumpadPlus: Int64  = 69
+let kNumpadMinus: Int64 = 78
+let kNumpadStar: Int64  = 67
+let kNumpadEqual: Int64 = 81
+let kNumpadSlash: Int64 = 75
+let kNumpadDot: Int64 = 65
+let kNumpad1: Int64 = 83
+let kNumpad2: Int64 = 84
+let kNumpad3: Int64 = 85
 
 let kSlash: Int64 = 42 // acts as a left mouse click
 let kTick: Int64 = 50  // acts as a right mouse click
@@ -23,7 +22,11 @@ let kArrowDown: Int64   = 125
 let kArrowLeft: Int64   = 123
 let kArrowRight: Int64  = 124
 
-let mouseStep: CGFloat  = 20.0
+// Movement Physics
+let baseSpeed: CGFloat = 3.0       // Starting speed (pixels per frame)
+let acceleration: CGFloat = 0.3    // How fast it speeds up
+let maxSpeed: CGFloat = 22.0       // Maximum velocity
+var currentVelocity: CGFloat = 0.0
 
 // macOS Media Key Constants
 let NX_KEYTYPE_SOUND_UP: UInt32   = 0
@@ -33,7 +36,6 @@ let NX_KEYTYPE_PLAY: UInt32       = 16
 let NX_KEYTYPE_NEXT: UInt32       = 17
 let NX_KEYTYPE_PREVIOUS: UInt32   = 18
 
-// Map keys to actions (media or app invocation)
 enum KeyAction {
     case media(UInt32)
     case app([String])
@@ -51,34 +53,56 @@ let keyMap: [Int64: KeyAction] = [
     kNumpad3: .app(["-a", "/Applications/WhatsApp.app"])
 ]
 
+// State Management
 var modifierIsDown = false
+var activeArrows: Set<Int64> = []
+var movementTimer: Timer?
 
-// CORE FUNCTIONS
+// Core Functions
 
 func moveMouse(dx: CGFloat, dy: CGFloat) {
-    guard let event = CGEvent(source: nil) else { return }
-    var loc = event.location
-    loc.x += dx
-    loc.y += dy
+    // Get current mouse location
+    let dummyEvent = CGEvent(source: nil)
+    guard let loc = dummyEvent?.location else { return }
+    
+    let newLoc = CGPoint(x: loc.x + dx, y: loc.y + dy)
     
     let moveEvent = CGEvent(mouseEventSource: nil, mouseType: .mouseMoved, 
-                            mouseCursorPosition: loc, mouseButton: .left)
+                            mouseCursorPosition: newLoc, mouseButton: .left)
     moveEvent?.post(tap: .cghidEventTap)
 }
 
-func clickMouse(button: CGMouseButton, isDown: Bool) {
-    guard let event = CGEvent(source: nil) else { return }
-    let loc = event.location
-    
-    let type: CGEventType
-    switch button {
-    case .left:
-        type = isDown ? .leftMouseDown : .leftMouseUp
-    case .right:
-        type = isDown ? .rightMouseDown : .rightMouseUp
-    default:
-        type = isDown ? .leftMouseDown : .leftMouseUp
+func updateMouseLoop() {
+    guard !activeArrows.isEmpty else {
+        currentVelocity = 0
+        return
     }
+
+    // Smoothly increase velocity
+    if currentVelocity < maxSpeed {
+        currentVelocity += acceleration
+    }
+
+    var dx: CGFloat = 0
+    var dy: CGFloat = 0
+
+    let step = baseSpeed + currentVelocity
+
+    if activeArrows.contains(kArrowRight) { dx += step }
+    if activeArrows.contains(kArrowLeft)  { dx -= step }
+    if activeArrows.contains(kArrowDown)  { dy += step }
+    if activeArrows.contains(kArrowUp)    { dy -= step }
+
+    moveMouse(dx: dx, dy: dy)
+}
+
+func clickMouse(button: CGMouseButton, isDown: Bool) {
+    let dummyEvent = CGEvent(source: nil)
+    guard let loc = dummyEvent?.location else { return }
+    
+    let type: CGEventType = (button == .left) 
+        ? (isDown ? .leftMouseDown : .leftMouseUp) 
+        : (isDown ? .rightMouseDown : .rightMouseUp)
     
     let clickEvent = CGEvent(mouseEventSource: nil, mouseType: type, 
                              mouseCursorPosition: loc, mouseButton: button)
@@ -86,20 +110,14 @@ func clickMouse(button: CGMouseButton, isDown: Bool) {
 }
 
 func handleAppOpener(_ processArgs: [String]) {
-    print("Spawning process...")
-
-    let pathToScript = "/usr/bin/open"
-
     let task = Process()
-    task.executableURL = URL(fileURLWithPath: pathToScript)
+    task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
     task.arguments = processArgs
     try? task.run()
 }
 
 func postMediaKey(key: UInt32) {
-    // Assign it to a variable 'src'
     let src = CGEventSource(stateID: .hidSystemState)
-    
     func createEvent(isDown: Bool) -> NSEvent? {
         let flags = isDown ? 0xa00 : 0xb00
         let data1 = Int((Int32(key) << 16) | (isDown ? 0xa : 0xb) << 8)
@@ -116,85 +134,76 @@ func postMediaKey(key: UInt32) {
             data2: -1
         )
     }
-
-    // Convert NSEvent to CGEvent and set the source explicitly
-    if let eventDown = createEvent(isDown: true)?.cgEvent {
-        eventDown.setSource(src) // Link the event to the HID source
-        eventDown.post(tap: .cghidEventTap)
-    }
-    
-    if let eventUp = createEvent(isDown: false)?.cgEvent {
-        eventUp.setSource(src) // Link the event to the HID source
-        eventUp.post(tap: .cghidEventTap)
-    }
+    if let evDown = createEvent(isDown: true)?.cgEvent { evDown.setSource(src); evDown.post(tap: .cghidEventTap) }
+    if let evUp = createEvent(isDown: false)?.cgEvent { evUp.setSource(src); evUp.post(tap: .cghidEventTap) }
 }
 
-// EVENT TAP CALLBACK
+// Event Tap Callback
 
 let callback: CGEventTapCallBack = { (proxy, type, event, refcon) in
     let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
 
-    // Handle Modifier (F13)
+    // 1. Handle Modifier (F13)
     if keyCode == kF13 {
         if type == .keyDown { modifierIsDown = true } 
-        else if type == .keyUp { modifierIsDown = false }
+        else if type == .keyUp { 
+            modifierIsDown = false 
+            activeArrows.removeAll() // Safety clear
+        }
         return nil 
     }
 
     if modifierIsDown {
-        // 1. Handle Mouse Click actions
+        // 2. Handle Clicks
         if keyCode == kSlash {
-            if type == .keyDown {
-                clickMouse(button: .left, isDown: true)
-            } else if type == .keyUp {
-                clickMouse(button: .left, isDown: false)
-            }
+            clickMouse(button: .left, isDown: (type == .keyDown))
             return nil
         }
-
         if keyCode == kTick {
-            if type == .keyDown {
-                clickMouse(button: .right, isDown: true)
-            } else if type == .keyUp {
-                clickMouse(button: .right, isDown: false)
-            }
+            clickMouse(button: .right, isDown: (type == .keyDown))
             return nil
         }
 
-        // 2. Handle Mouse Movement (Arrows)
+        // 3. Handle Smooth Movement
         let isArrow = [kArrowUp, kArrowDown, kArrowLeft, kArrowRight].contains(keyCode)
-        
-        if type == .keyDown && isArrow {
-            let dx: CGFloat = (keyCode == kArrowRight ? mouseStep : (keyCode == kArrowLeft ? -mouseStep : 0))
-            let dy: CGFloat = (keyCode == kArrowDown ? mouseStep : (keyCode == kArrowUp ? -mouseStep : 0))
-            moveMouse(dx: dx, dy: dy)
-            return nil
-        }
-
-        // 3. Handle Media Keys / App Opener
-        if type == .keyDown, let action = keyMap[keyCode] {
-            switch action {
-            case .media(let mediaKey):
-                postMediaKey(key: mediaKey)
-            case .app(let args):
-                DispatchQueue.global().async {
-                    handleAppOpener(args)
+        if isArrow {
+            if type == .keyDown {
+                activeArrows.insert(keyCode)
+                if movementTimer == nil {
+                    // 120Hz update for smooth movement
+                    DispatchQueue.main.async {
+                        movementTimer = Timer.scheduledTimer(withTimeInterval: 1.0/120.0, repeats: true) { _ in
+                            updateMouseLoop()
+                        }
+                    }
+                }
+            } else if type == .keyUp {
+                activeArrows.remove(keyCode)
+                if activeArrows.isEmpty {
+                    movementTimer?.invalidate()
+                    movementTimer = nil
+                    currentVelocity = 0
                 }
             }
             return nil
         }
-        
-        // Swallow release of mapped keys
-        if type == .keyUp && (isArrow || keyMap.keys.contains(keyCode)) {
+
+        // 4. Handle Media/Apps
+        if type == .keyDown, let action = keyMap[keyCode] {
+            switch action {
+            case .media(let m): postMediaKey(key: m)
+            case .app(let a): DispatchQueue.global().async { handleAppOpener(a) }
+            }
             return nil
         }
+        
+        if type == .keyUp && keyMap.keys.contains(keyCode) { return nil }
     }
 
     return Unmanaged.passUnretained(event)
 }
 
-// SETUP & RUNLOOP
-
+// Setup & Run
 let mask = (1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.keyUp.rawValue)
 
 guard let eventTap = CGEvent.tapCreate(
