@@ -234,31 +234,27 @@ guard let eventTap = CGEvent.tapCreate(
     exit(1)
 }
 
-let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0)
-CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
-CGEvent.tapEnable(tap: eventTap, enable: true)
+DispatchQueue.global(qos: .userInteractive).async {
+    let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0)
+    
+    CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
+    CGEvent.tapEnable(tap: eventTap, enable: true)
+    
+    CFRunLoopRun() 
+}
 
 let app = NSApplication.shared
 DispatchQueue.main.async {
+    NSApp.setActivationPolicy(.accessory)
+    NSApp.activate()
+    
     let alert = NSAlert()
     alert.messageText = "ADB Media Control"
     alert.informativeText = "The driver is now running in the background..."
     alert.alertStyle = .informational
-    alert.addButton(withTitle: "Ok")
+    alert.addButton(withTitle: "Close Alert")
 
-    // This shows the alert window WITHOUT stopping the code execution
-    alert.layout()
-    alert.window.center()
-    alert.window.makeKeyAndOrderFront(nil)
-
-    let response = alert.runModal()
-
-    if response == .alertFirstButtonReturn {
-       print("ADB Media Control Driver Active...")
-    }
-    
-    // Optional: Bring it to the very front so the user sees it
-    NSApp.activate(ignoringOtherApps: true)
+    _ = alert.runModal()
 }
 
 app.run()
