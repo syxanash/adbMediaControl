@@ -1,9 +1,9 @@
 #!/bin/bash
 
-APP_NAME="ADB Media Control.app"
+APP_NAME="ADBridge.app"
 ICON_FILE="AppIcon.icns"
 INFO_PLIST_FILE="Info.plist"
-BINARY_NAME="adbMediaControl"
+BINARY_NAME="adbridge"
 SOURCE_FILE="main.swift"
 
 killall "$BINARY_NAME" 2>/dev/null

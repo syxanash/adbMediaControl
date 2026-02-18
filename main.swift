@@ -258,7 +258,7 @@ guard let eventTap = CGEvent.tapCreate(
 
     let alert = NSAlert()
     alert.messageText = "Accessibility Permission Required"
-    alert.informativeText = "adbMediaControl needs Accessibility permission to capture global key events.\n\nOpen System Settings → Privacy & Security → Accessibility and add adbMediaControl.app."
+    alert.informativeText = "ADBridge needs Accessibility permission to capture global key events.\n\nOpen System Settings → Privacy & Security → Accessibility and add ADBridge.app"
     alert.alertStyle = .warning
     alert.addButton(withTitle: "Open Settings")
     alert.addButton(withTitle: "Quit")
@@ -283,7 +283,7 @@ DispatchQueue.main.async {
     NSApp.activate()
     
     let alert = NSAlert()
-    alert.messageText = "ADB Media Control is running"
+    alert.messageText = "ADBridge is running"
     alert.informativeText = "Running in the background.\n\nTo configure app shortcut keys, edit:\n~/Documents/adbMediaControl.json"
     alert.alertStyle = .informational
     alert.addButton(withTitle: "Open Config File")
