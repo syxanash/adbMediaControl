@@ -28,4 +28,4 @@ dist-ssr
 
 *.app
 *.dSYM
-adbMediaControl.app/
+*.app

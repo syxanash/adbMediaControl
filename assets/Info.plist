@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleExecutable</key>
-    <string>adbMediaControl</string>
+    <string>adbridge</string>
     <key>CFBundleIdentifier</key>
-    <string>computer.simone.adbMediaControl</string>
+    <string>computer.simone.adbridge</string>
     <key>CFBundleName</key>
-    <string>adbMediaControl</string>
+    <string>adbridge</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>LSUIElement</key>

@@ -13,6 +13,12 @@ let kNumpadDot: Int64 = 65
 let kNumpad1: Int64 = 83
 let kNumpad2: Int64 = 84
 let kNumpad3: Int64 = 85
+let kNumpad4: Int64 = 86
+let kNumpad5: Int64 = 87
+let kNumpad6: Int64 = 88
+let kNumpad7: Int64 = 89
+let kNumpad8: Int64 = 91
+let kNumpad9: Int64 = 92
 
 let kSlash: Int64 = 42 // acts as a left mouse click
 let kTick: Int64 = 50  // acts as a right mouse click
@@ -23,8 +29,8 @@ let kArrowLeft: Int64   = 123
 let kArrowRight: Int64  = 124
 
 // Movement Physics
-let baseSpeed: CGFloat = 3.0       // Starting speed (pixels per frame)
-let acceleration: CGFloat = 0.3    // How fast it speeds up
+let baseSpeed: CGFloat = 2.0       // Starting speed (pixels per frame)
+let acceleration: CGFloat = 0.4    // How fast it speeds up
 let maxSpeed: CGFloat = 22.0       // Maximum velocity
 var currentVelocity: CGFloat = 0.0
 
@@ -41,17 +47,52 @@ enum KeyAction {
     case app([String])
 }
 
-let keyMap: [Int64: KeyAction] = [
-    kNumpadPlus: .media(NX_KEYTYPE_SOUND_UP),
-    kNumpadMinus: .media(NX_KEYTYPE_SOUND_DOWN),
-    kNumpadStar: .media(NX_KEYTYPE_PLAY),
-    kNumpadEqual: .media(NX_KEYTYPE_PREVIOUS),
-    kNumpadSlash: .media(NX_KEYTYPE_NEXT),
-    kNumpadDot: .media(NX_KEYTYPE_MUTE),
-    kNumpad1: .app(["-a", "/Applications/Firefox.app", "-g", "http://simone.computer"]),
-    kNumpad2: .app(["-a", "/Applications/Spotify.app"]),
-    kNumpad3: .app(["-a", "/Applications/WhatsApp.app"])
-]
+// Config — lives at ~/Documents/adbMediaControl.json
+let configURL = FileManager.default.homeDirectoryForCurrentUser
+    .appendingPathComponent("Documents/adbMediaControl.json")
+
+func createDefaultConfigIfNeeded() {
+    guard !FileManager.default.fileExists(atPath: configURL.path) else { return }
+    let template = """
+    {
+      "numpad1": "-a /Applications/Firefox.app https://simone.computer",
+    }
+    """
+    try? template.write(to: configURL, atomically: true, encoding: .utf8)
+}
+
+func loadConfig() -> [String: String] {
+    createDefaultConfigIfNeeded()
+    guard let data = try? Data(contentsOf: configURL),
+          let config = try? JSONDecoder().decode([String: String].self, from: data) else {
+        return [:]
+    }
+    return config
+}
+
+let config = loadConfig()
+
+let keyMap: [Int64: KeyAction] = {
+    var map: [Int64: KeyAction] = [
+        kNumpadPlus: .media(NX_KEYTYPE_SOUND_UP),
+        kNumpadMinus: .media(NX_KEYTYPE_SOUND_DOWN),
+        kNumpadStar: .media(NX_KEYTYPE_PLAY),
+        kNumpadEqual: .media(NX_KEYTYPE_PREVIOUS),
+        kNumpadSlash: .media(NX_KEYTYPE_NEXT),
+        kNumpadDot: .media(NX_KEYTYPE_MUTE),
+    ]
+    let numpadKeyCodes: [String: Int64] = [
+        "numpad1": kNumpad1, "numpad2": kNumpad2, "numpad3": kNumpad3,
+        "numpad4": kNumpad4, "numpad5": kNumpad5, "numpad6": kNumpad6,
+        "numpad7": kNumpad7, "numpad8": kNumpad8, "numpad9": kNumpad9,
+    ]
+    for (key, args) in config {
+        if let keyCode = numpadKeyCodes[key] {
+            map[keyCode] = .app(args.components(separatedBy: " "))
+        }
+    }
+    return map
+}()
 
 // State Management
 var modifierIsDown = false
@@ -171,10 +212,8 @@ let callback: CGEventTapCallBack = { (proxy, type, event, refcon) in
                 activeArrows.insert(keyCode)
                 if movementTimer == nil {
                     // 120Hz update for smooth movement
-                    DispatchQueue.main.async {
-                        movementTimer = Timer.scheduledTimer(withTimeInterval: 1.0/120.0, repeats: true) { _ in
-                            updateMouseLoop()
-                        }
+                    movementTimer = Timer.scheduledTimer(withTimeInterval: 1.0/120.0, repeats: true) { _ in
+                        updateMouseLoop()
                     }
                 }
             } else if type == .keyUp {
@@ -219,7 +258,7 @@ guard let eventTap = CGEvent.tapCreate(
 
     let alert = NSAlert()
     alert.messageText = "Accessibility Permission Required"
-    alert.informativeText = "adbMediaControl needs Accessibility permission to capture global key events.\n\nOpen System Settings → Privacy & Security → Accessibility and add adbMediaControl.app."
+    alert.informativeText = "ADBridge needs Accessibility permission to capture global key events.\n\nOpen System Settings → Privacy & Security → Accessibility and add ADBridge.app"
     alert.alertStyle = .warning
     alert.addButton(withTitle: "Open Settings")
     alert.addButton(withTitle: "Quit")
@@ -234,14 +273,9 @@ guard let eventTap = CGEvent.tapCreate(
     exit(1)
 }
 
-DispatchQueue.global(qos: .userInteractive).async {
-    let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0)
-    
-    CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
-    CGEvent.tapEnable(tap: eventTap, enable: true)
-    
-    CFRunLoopRun() 
-}
+let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0)
+CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
+CGEvent.tapEnable(tap: eventTap, enable: true)
 
 let app = NSApplication.shared
 DispatchQueue.main.async {
@@ -249,12 +283,16 @@ DispatchQueue.main.async {
     NSApp.activate()
     
     let alert = NSAlert()
-    alert.messageText = "ADB Media Control"
-    alert.informativeText = "The driver is now running in the background..."
+    alert.messageText = "ADBridge is running"
+    alert.informativeText = "Running in the background.\n\nTo configure app shortcut keys, edit:\n~/Documents/adbMediaControl.json"
     alert.alertStyle = .informational
-    alert.addButton(withTitle: "Close Alert")
+    alert.addButton(withTitle: "Open Config File")
+    alert.addButton(withTitle: "Close")
 
-    _ = alert.runModal()
+    let response = alert.runModal()
+    if response == .alertFirstButtonReturn {
+        NSWorkspace.shared.open(configURL)
+    }
 }
 
 app.run()
