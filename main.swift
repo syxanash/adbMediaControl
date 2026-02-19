@@ -103,6 +103,7 @@ let keyMap: [Int64: KeyAction] = {
         kNumpadEqual: .media(NX_KEYTYPE_PREVIOUS),
         kNumpadSlash: .media(NX_KEYTYPE_NEXT),
         kNumpadDot: .media(NX_KEYTYPE_MUTE),
+        kNumpad6: .app(["-a", "Mission Control"]),
     ]
     let numpadKeyCodes: [String: Int64] = [
         "num1": numsRows1, "num2": numsRows2, "num3": numsRows3,
@@ -125,6 +126,9 @@ var movementTimer: Timer?
 var activeScrolls: Set<Int64> = []
 var scrollTimer: Timer?
 let scrollSpeed: Int32 = 15
+
+var lastClickTime: TimeInterval = 0
+var clickCount: Int64 = 1
 
 // Core Functions
 
@@ -177,8 +181,22 @@ func clickMouse(button: CGMouseButton, isDown: Bool) {
         ? (isDown ? .leftMouseDown : .leftMouseUp) 
         : (isDown ? .rightMouseDown : .rightMouseUp)
     
+    if isDown {
+        let currentTime = Date().timeIntervalSince1970
+        // If the click happened within 0.5 seconds of the last one, it's a double/triple click
+        if (currentTime - lastClickTime) < 0.5 {
+            clickCount += 1
+        } else {
+            clickCount = 1
+        }
+        lastClickTime = currentTime
+    }
+
     let clickEvent = CGEvent(mouseEventSource: nil, mouseType: type, 
                              mouseCursorPosition: loc, mouseButton: button)
+
+    clickEvent?.setIntegerValueField(.mouseEventClickState, value: clickCount)
+    
     clickEvent?.post(tap: .cghidEventTap)
 }
 
@@ -220,8 +238,15 @@ let callback: CGEventTapCallBack = { (proxy, type, event, refcon) in
     if keyCode == kF13 {
         if type == .keyDown { modifierIsDown = true } 
         else if type == .keyUp { 
-            modifierIsDown = false 
-            activeArrows.removeAll() // Safety clear
+            modifierIsDown = false
+            activeArrows.removeAll()
+            movementTimer?.invalidate()
+            movementTimer = nil
+            currentVelocity = 0
+
+            activeScrolls.removeAll()
+            scrollTimer?.invalidate()
+            scrollTimer = nil
         }
         return nil 
     }
