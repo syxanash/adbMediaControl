@@ -144,14 +144,40 @@ func scrollMouse(dx: Int32, dy: Int32) {
     scrollEvent?.post(tap: .cghidEventTap)
 }
 
+func getDisplayBounds() -> [CGRect] {
+    var displayCount: UInt32 = 0
+    CGGetActiveDisplayList(0, nil, &displayCount)
+    var displayIDs = [CGDirectDisplayID](repeating: 0, count: Int(displayCount))
+    CGGetActiveDisplayList(displayCount, &displayIDs, &displayCount)
+    return displayIDs.map { CGDisplayBounds($0) }
+}
+
+func clampToDisplays(_ point: CGPoint, displays: [CGRect]) -> CGPoint {
+    for display in displays {
+        if display.contains(point) { return point }
+    }
+    var best = point
+    var bestDist = CGFloat.infinity
+    for display in displays {
+        let cx = max(display.minX, min(display.maxX - 1, point.x))
+        let cy = max(display.minY, min(display.maxY - 1, point.y))
+        let dist = hypot(cx - point.x, cy - point.y)
+        if dist < bestDist {
+            bestDist = dist
+            best = CGPoint(x: cx, y: cy)
+        }
+    }
+    return best
+}
+
 func moveMouse(dx: CGFloat, dy: CGFloat) {
-    // Get current mouse location
     let dummyEvent = CGEvent(source: nil)
     guard let loc = dummyEvent?.location else { return }
-    
-    let newLoc = CGPoint(x: loc.x + dx, y: loc.y + dy)
-    
-    let moveEvent = CGEvent(mouseEventSource: nil, mouseType: .mouseMoved, 
+
+    let rawLoc = CGPoint(x: loc.x + dx, y: loc.y + dy)
+    let newLoc = clampToDisplays(rawLoc, displays: getDisplayBounds())
+
+    let moveEvent = CGEvent(mouseEventSource: nil, mouseType: .mouseMoved,
                             mouseCursorPosition: newLoc, mouseButton: .left)
     moveEvent?.post(tap: .cghidEventTap)
 }
