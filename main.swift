@@ -4,9 +4,12 @@ import AppKit
 
 let configFile: String = "Documents/adbridgeConfig.json"
 
+let modifierKey: Int64 = kF13
+
 // Mouse Controls
 let leftClick: Int64 = kNumpad0       // acts as a left mouse click
 let rightClick: Int64 = kNumpadEnter  // acts as a right mouse click
+let middleClick: Int64 = kNumpadDot   // acts as a middle mouse click                                                                                
 
 let kArrowUp: Int64     = kNumpad5
 let kArrowDown: Int64   = kNumpad2
@@ -66,7 +69,6 @@ let keyMap: [Int64: KeyAction] = {
         kNumpadStar: .media(NX_KEYTYPE_PLAY),
         kNumpadEqual: .media(NX_KEYTYPE_PREVIOUS),
         kNumpadSlash: .media(NX_KEYTYPE_NEXT),
-        kNumpadDot: .media(NX_KEYTYPE_MUTE),
         kNumpad6: .app(["-a", "Mission Control"]),
     ]
     let numpadKeyCodes: [String: Int64] = [
@@ -94,6 +96,7 @@ var lastClickTime: TimeInterval = 0
 var clickCount: Int64 = 1
 var leftClickIsDown = false
 var rightClickIsDown = false
+var middleClickIsDown = false
 
 // Core Functions
 
@@ -190,9 +193,12 @@ func clickMouse(button: CGMouseButton, isDown: Bool) {
     let dummyEvent = CGEvent(source: nil)
     guard let loc = dummyEvent?.location else { return }
     
-    let type: CGEventType = (button == .left) 
-        ? (isDown ? .leftMouseDown : .leftMouseUp) 
-        : (isDown ? .rightMouseDown : .rightMouseUp)
+    let type: CGEventType
+    switch button {
+    case .left:   type = isDown ? .leftMouseDown  : .leftMouseUp
+    case .right:  type = isDown ? .rightMouseDown : .rightMouseUp
+    default:      type = isDown ? .otherMouseDown : .otherMouseUp  // center/middle
+    }
     
     if isDown {
         let currentTime = Date().timeIntervalSince1970
@@ -270,6 +276,10 @@ let callback: CGEventTapCallBack = { (proxy, type, event, refcon) in
                 rightClickIsDown = false
                 clickMouse(button: .right, isDown: false)
             }
+            if middleClickIsDown {
+                middleClickIsDown = false
+                clickMouse(button: .center, isDown: false)
+            }
         }
         return nil 
     }
@@ -284,6 +294,11 @@ let callback: CGEventTapCallBack = { (proxy, type, event, refcon) in
         if keyCode == rightClick {
             rightClickIsDown = (type == .keyDown)
             clickMouse(button: .right, isDown: (type == .keyDown))
+            return nil
+        }
+        if keyCode == middleClick {
+            middleClickIsDown = (type == .keyDown)
+            clickMouse(button: .center, isDown: (type == .keyDown))
             return nil
         }
 

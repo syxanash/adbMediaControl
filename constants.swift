@@ -1,6 +1,6 @@
 import CoreGraphics
 
-// Modifier Key F13
+// Key F13
 let kF13: Int64 = 105
 
 // Numpad Key Codes
@@ -37,7 +37,7 @@ let numsRows0: Int64 = 29
 // macOS Media Key Constants
 let NX_KEYTYPE_SOUND_UP: UInt32   = 0
 let NX_KEYTYPE_SOUND_DOWN: UInt32 = 1
-let NX_KEYTYPE_MUTE: UInt32       = 7
+// let NX_KEYTYPE_MUTE: UInt32       = 7
 let NX_KEYTYPE_PLAY: UInt32       = 16
 let NX_KEYTYPE_NEXT: UInt32       = 17
 let NX_KEYTYPE_PREVIOUS: UInt32   = 18
