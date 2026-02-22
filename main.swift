@@ -255,8 +255,8 @@ func postMediaKey(key: UInt32) {
 let callback: CGEventTapCallBack = { (proxy, type, event, refcon) in
     let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
 
-    // 1. Handle Modifier (F13)
-    if keyCode == kF13 {
+    // 1. Handle Modifier
+    if keyCode == modifierKey {
         if type == .keyDown { modifierIsDown = true } 
         else if type == .keyUp { 
             modifierIsDown = false
