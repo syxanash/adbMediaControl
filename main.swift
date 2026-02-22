@@ -420,8 +420,8 @@ DispatchQueue.main.async {
     statusItem?.menu = menu
 
     let alert = NSAlert()
-    alert.messageText = "ADBridge is running"
-    alert.informativeText = "Running in the background.\n\nTo configure app shortcut keys, edit:\n~\(configFile)"
+    alert.messageText = "ADBridge is running!"
+    alert.informativeText = "To configure app shortcut keys, edit:\n~\(configFile)"
     alert.alertStyle = .informational
     alert.addButton(withTitle: "Open Config File")
     alert.addButton(withTitle: "Close")
