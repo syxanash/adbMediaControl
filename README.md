@@ -57,3 +57,7 @@ By default ADBridge creates a config file `~/Documents/adbridgeConfig.json`. The
 ```
 
 Each "num" on the number row can be configured to open an Application (similar to a macOS Dock).
+
+You can quit ADBridge by clicking on the triangle icon on the menu bar:
+
+![menu bar](repo-assets/menubar.png)
