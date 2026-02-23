@@ -112,7 +112,7 @@ var cachedDisplayBounds: [CGRect] = getDisplayBounds()
 func setStatusIcon(filled: Bool) {
     guard let button = statusItem?.button else { return }
     let name = filled ? "triangle-fill.png" : "triangle.png"
-    if let image = NSImage(contentsOfFile: Bundle.main.resourcePath! + "/" + name) {
+    if let image = NSImage(contentsOfFile: "app-assets/" + name) {
         image.isTemplate = true
         button.image = image
     } else {
@@ -401,7 +401,12 @@ let callback: CGEventTapCallBack = { (proxy, type, event, refcon) in
             return nil
         }
         
-        if type == .keyUp && keyMap.keys.contains(keyCode) { return nil }
+        if type == .keyUp && keyMap.keys.contains(keyCode) {
+            if mouseHasMovedWhileToggled && numberRowKeys.contains(keyCode) {
+                return Unmanaged.passUnretained(event)
+            }
+            return nil
+        }
     }
 
     return Unmanaged.passUnretained(event)
