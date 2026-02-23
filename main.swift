@@ -85,7 +85,10 @@ let keyMap: [Int64: KeyAction] = {
 }()
 
 // State Management
-var modifierIsDown = false
+var toggleActive = false
+var modifierIsHeld = false
+var modifierPressTime: TimeInterval = 0
+let modifierHoldThreshold: TimeInterval = 0.4   // seconds; >= this → hold mode, < this → toggle mode
 var activeArrows: Set<Int64> = []
 var movementTimer: Timer?
 
@@ -107,7 +110,7 @@ var cachedDisplayBounds: [CGRect] = getDisplayBounds()
 func setStatusIcon(filled: Bool) {
     guard let button = statusItem?.button else { return }
     let name = filled ? "triangle-fill.png" : "triangle.png"
-    if let image = NSImage(contentsOfFile: Bundle.main.resourcePath! + "/" + name) {
+    if let image = NSImage(contentsOfFile: "app-assets/" + name) {
         image.isTemplate = true
         button.image = image
     } else {
@@ -264,48 +267,62 @@ func postMediaKey(key: UInt32) {
     if let evUp = createEvent(isDown: false)?.cgEvent { evUp.setSource(src); evUp.post(tap: .cghidEventTap) }
 }
 
+func deactivateToggle() {
+    toggleActive = false
+    modifierIsHeld = false
+    DispatchQueue.main.async { setStatusIcon(filled: false) }
+
+    activeArrows.removeAll()
+    movementTimer?.invalidate()
+    movementTimer = nil
+    currentVelocity = 0
+
+    activeScrolls.removeAll()
+    scrollTimer?.invalidate()
+    scrollTimer = nil
+    scrollVelocity = 0
+
+    if leftClickIsDown {
+        leftClickIsDown = false
+        clickMouse(button: .left, isDown: false)
+    }
+    if rightClickIsDown {
+        rightClickIsDown = false
+        clickMouse(button: .right, isDown: false)
+    }
+    if middleClickIsDown {
+        middleClickIsDown = false
+        clickMouse(button: .center, isDown: false)
+    }
+}
+
 // Event Tap Callback
 
 let callback: CGEventTapCallBack = { (proxy, type, event, refcon) in
     let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
 
-    // 1. Handle Modifier
+    // 1. Handle Modifier - quick tap toggles, hold deactivates on release
     if keyCode == modifierKey {
-        if type == .keyDown {
-            modifierIsDown = true
-            DispatchQueue.main.async { setStatusIcon(filled: true) }
+        if type == .keyDown && !modifierIsHeld {
+            modifierIsHeld = true
+            if toggleActive {
+                deactivateToggle()
+            } else {
+                toggleActive = true
+                modifierPressTime = Date().timeIntervalSince1970
+                DispatchQueue.main.async { setStatusIcon(filled: true) }
+            }
         } else if type == .keyUp {
-            modifierIsDown = false
-
-            DispatchQueue.main.async { setStatusIcon(filled: false) }
-
-            activeArrows.removeAll()
-            movementTimer?.invalidate()
-            movementTimer = nil
-            currentVelocity = 0
-
-            activeScrolls.removeAll()
-            scrollTimer?.invalidate()
-            scrollTimer = nil
-            scrollVelocity = 0
-
-            if leftClickIsDown {
-                leftClickIsDown = false
-                clickMouse(button: .left, isDown: false)
-            }
-            if rightClickIsDown {
-                rightClickIsDown = false
-                clickMouse(button: .right, isDown: false)
-            }
-            if middleClickIsDown {
-                middleClickIsDown = false
-                clickMouse(button: .center, isDown: false)
+            modifierIsHeld = false
+            // Only deactivate if the key was held long enough (hold mode)
+            if toggleActive && (Date().timeIntervalSince1970 - modifierPressTime) >= modifierHoldThreshold {
+                deactivateToggle()
             }
         }
-        return nil 
+        return nil
     }
 
-    if modifierIsDown {
+    if toggleActive {
         // 2. Handle Clicks
         if keyCode == leftClick {
             leftClickIsDown = (type == .keyDown)
@@ -371,6 +388,12 @@ let callback: CGEventTapCallBack = { (proxy, type, event, refcon) in
             switch action {
             case .media(let m): postMediaKey(key: m)
             case .app(let a): DispatchQueue.global().async { handleAppOpener(a) }
+            }
+            // Disable toggle after any media/app action, except:
+            // - Mission Control (toggle stays on by design)
+            // - F13 is still held (hold mode, user may press more keys sequentially)
+            if keyCode != kNumpad6 && !modifierIsHeld {
+                deactivateToggle()
             }
             return nil
         }
