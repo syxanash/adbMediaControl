@@ -91,6 +91,8 @@ var modifierPressTime: TimeInterval = 0
 let modifierHoldThreshold: TimeInterval = 0.4   // seconds; >= this → hold mode, < this → toggle mode
 var mouseHasMovedWhileToggled = false
 let numberRowKeys: Set<Int64> = [numsRows1, numsRows2, numsRows3, numsRows4, numsRows5, numsRows6, numsRows7, numsRows8, numsRows9]
+let arrowKeys: Set<Int64>     = [kArrowUp, kArrowDown, kArrowLeft, kArrowRight]
+let scrollKeys: Set<Int64>    = [kScrollUp, kScrollDown, kScrollLeft, kScrollRight]
 var activeArrows: Set<Int64> = []
 var movementTimer: Timer?
 
@@ -106,14 +108,14 @@ var rightClickIsDown = false
 var middleClickIsDown = false
 
 var cachedDisplayBounds: [CGRect] = getDisplayBounds()
+let cachedIconFilled: NSImage? = { let img = NSImage(contentsOfFile: Bundle.main.resourcePath! + "/triangle-fill.png"); img?.isTemplate = true; return img }()
+let cachedIconEmpty: NSImage?  = { let img = NSImage(contentsOfFile: Bundle.main.resourcePath! + "/triangle.png");      img?.isTemplate = true; return img }()
 
 // Core Functions
 
 func setStatusIcon(filled: Bool) {
     guard let button = statusItem?.button else { return }
-    let name = filled ? "triangle-fill.png" : "triangle.png"
-    if let image = NSImage(contentsOfFile: Bundle.main.resourcePath! + "/" + name) {
-        image.isTemplate = true
+    if let image = filled ? cachedIconFilled : cachedIconEmpty {
         button.image = image
     } else {
         button.image = NSImage(systemSymbolName: "keyboard", accessibilityDescription: "ADBridge")
@@ -345,7 +347,7 @@ let callback: CGEventTapCallBack = { (proxy, type, event, refcon) in
         }
 
         // 3. Handle Smooth Movement
-        let isArrow = [kArrowUp, kArrowDown, kArrowLeft, kArrowRight].contains(keyCode)
+        let isArrow = arrowKeys.contains(keyCode)
         if isArrow {
             if type == .keyDown {
                 mouseHasMovedWhileToggled = true
@@ -368,7 +370,7 @@ let callback: CGEventTapCallBack = { (proxy, type, event, refcon) in
         }
 
         // 4. Handle Scrolling
-        let isScroll = [kScrollUp, kScrollDown, kScrollLeft, kScrollRight].contains(keyCode)
+        let isScroll = scrollKeys.contains(keyCode)
         if isScroll {
             if type == .keyDown {
                 activeScrolls.insert(keyCode)
@@ -389,12 +391,12 @@ let callback: CGEventTapCallBack = { (proxy, type, event, refcon) in
         }
 
         // 5. Handle Media/Apps
-        if keyMap.keys.contains(keyCode) {
+        if let action = keyMap[keyCode] {
             // Pass through number row keys if the mouse was used (let them type normally)
             if mouseHasMovedWhileToggled && numberRowKeys.contains(keyCode) {
                 return Unmanaged.passUnretained(event)
             }
-            if type == .keyDown, let action = keyMap[keyCode] {
+            if type == .keyDown {
                 switch action {
                 case .media(let m): postMediaKey(key: m)
                 case .app(let a): DispatchQueue.global().async { handleAppOpener(a) }
