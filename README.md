@@ -1,4 +1,5 @@
-# ADBridge
+# ADBridge [![blog](https://raw.githubusercontent.com/syxanash/awesome-web-desktops/refs/heads/main/assets/notebook.png)](https://blog.simone.computer/apple-adb-keyboard)
+
 
 <img src='repo-assets/icon.png' alt='app icon' style='height: 150px'><br>
 
