@@ -75,6 +75,7 @@ let keyMap: [Int64: KeyAction] = {
         "num1": numsRows1, "num2": numsRows2, "num3": numsRows3,
         "num4": numsRows4, "num5": numsRows5, "num6": numsRows6,
         "num7": numsRows7, "num8": numsRows8, "num9": numsRows9,
+        "num0": numsRows0,
     ]
     for (key, args) in config {
         if let keyCode = numpadKeyCodes[key] {
@@ -90,7 +91,7 @@ var modifierIsHeld = false
 var modifierPressTime: TimeInterval = 0
 let modifierHoldThreshold: TimeInterval = 0.4   // seconds; >= this → hold mode, < this → toggle mode
 var mouseHasMovedWhileToggled = false
-let numberRowKeys: Set<Int64> = [numsRows1, numsRows2, numsRows3, numsRows4, numsRows5, numsRows6, numsRows7, numsRows8, numsRows9]
+let numberRowKeys: Set<Int64> = [numsRows0, numsRows1, numsRows2, numsRows3, numsRows4, numsRows5, numsRows6, numsRows7, numsRows8, numsRows9]
 let arrowKeys: Set<Int64>     = [kArrowUp, kArrowDown, kArrowLeft, kArrowRight]
 let scrollKeys: Set<Int64>    = [kScrollUp, kScrollDown, kScrollLeft, kScrollRight]
 var activeArrows: Set<Int64> = []
