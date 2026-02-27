@@ -89,8 +89,7 @@ let keyMap: [Int64: KeyAction] = {
 var toggleActive = false
 var modifierIsHeld = false
 var modifierPressTime: TimeInterval = 0
-let modifierHoldThreshold: TimeInterval = 0.4   // seconds; >= this → hold mode, < this → toggle mode
-var mouseHasMovedWhileToggled = false
+let modifierHoldThreshold: TimeInterval = 0.2   // seconds; >= this → hold mode, < this → toggle mode
 let numberRowKeys: Set<Int64> = [numsRows0, numsRows1, numsRows2, numsRows3, numsRows4, numsRows5, numsRows6, numsRows7, numsRows8, numsRows9]
 let arrowKeys: Set<Int64>     = [kArrowUp, kArrowDown, kArrowLeft, kArrowRight]
 let scrollKeys: Set<Int64>    = [kScrollUp, kScrollDown, kScrollLeft, kScrollRight]
@@ -275,7 +274,6 @@ func postMediaKey(key: UInt32) {
 func deactivateToggle() {
     toggleActive = false
     modifierIsHeld = false
-    mouseHasMovedWhileToggled = false
     DispatchQueue.main.async { setStatusIcon(filled: false) }
 
     activeArrows.removeAll()
@@ -315,7 +313,6 @@ let callback: CGEventTapCallBack = { (proxy, type, event, refcon) in
                 deactivateToggle()
             } else {
                 toggleActive = true
-                mouseHasMovedWhileToggled = false
                 modifierPressTime = Date().timeIntervalSince1970
                 DispatchQueue.main.async { setStatusIcon(filled: true) }
             }
@@ -351,7 +348,6 @@ let callback: CGEventTapCallBack = { (proxy, type, event, refcon) in
         let isArrow = arrowKeys.contains(keyCode)
         if isArrow {
             if type == .keyDown {
-                mouseHasMovedWhileToggled = true
                 activeArrows.insert(keyCode)
                 if movementTimer == nil {
                     // 120Hz update for smooth movement
@@ -394,7 +390,7 @@ let callback: CGEventTapCallBack = { (proxy, type, event, refcon) in
         // 5. Handle Media/Apps
         if let action = keyMap[keyCode] {
             // Pass through number row keys if the mouse was used (let them type normally)
-            if mouseHasMovedWhileToggled && numberRowKeys.contains(keyCode) {
+            if !modifierIsHeld && numberRowKeys.contains(keyCode) {
                 return Unmanaged.passUnretained(event)
             }
             if type == .keyDown {
