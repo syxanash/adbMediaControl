@@ -98,6 +98,8 @@ let keyMap: [Int64: KeyAction] = {
 // State Management
 var toggleActive = false
 var modifierIsHeld = false
+var modifierPressedWhileActive = false
+var modifierUsedForAction = false
 var boostActive = false
 var modifierPressTime: TimeInterval = 0
 let modifierHoldThreshold: TimeInterval = 0.2   // seconds; >= this → hold mode, < this → toggle mode
@@ -347,18 +349,30 @@ let callback: CGEventTapCallBack = { (proxy, type, event, refcon) in
     if keyCode == modifierKey {
         if type == .keyDown && !modifierIsHeld {
             modifierIsHeld = true
+            modifierPressTime = Date().timeIntervalSince1970
             if toggleActive {
-                deactivateToggle()
+                modifierPressedWhileActive = true
+                // Stay active; app shortcuts still fire while modifier is held
             } else {
                 toggleActive = true
-                modifierPressTime = Date().timeIntervalSince1970
                 DispatchQueue.main.async { setStatusIcon(filled: true) }
             }
         } else if type == .keyUp {
             modifierIsHeld = false
-            // Only deactivate if the key was held long enough (hold mode)
-            if toggleActive && (Date().timeIntervalSince1970 - modifierPressTime) >= modifierHoldThreshold {
-                deactivateToggle()
+            if toggleActive {
+                if modifierPressedWhileActive {
+                    // Defer so an app key pressed just after modifier release can still register
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                        if !modifierUsedForAction { deactivateToggle() }
+                        modifierPressedWhileActive = false
+                        modifierUsedForAction = false
+                    }
+                } else if (Date().timeIntervalSince1970 - modifierPressTime) >= modifierHoldThreshold {
+                    deactivateToggle()
+                }
+            } else {
+                modifierPressedWhileActive = false
+                modifierUsedForAction = false
             }
         }
         return nil
@@ -435,6 +449,7 @@ let callback: CGEventTapCallBack = { (proxy, type, event, refcon) in
                 switch action {
                 case .media(let m): postMediaKey(key: m)
                 case .app(let a):
+                    if modifierPressedWhileActive { modifierUsedForAction = true }
                     if keyCode != kNumpad6 { showAppToast(name: appDisplayName(from: a)) }
                     DispatchQueue.global().async { handleAppOpener(a) }
                 }

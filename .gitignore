@@ -31,3 +31,4 @@ dist-ssr
 *.app
 
 .claude/
+.vscode/
