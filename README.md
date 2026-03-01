@@ -16,7 +16,7 @@ ADBridge will provide the following keyboard shortcuts by default:
 
 ## UI
 
-ADBridge can act as a toggle (press the Power Key once briefly) and then you can use the mouse from the numpad or the media keys. Alternatively just combine the Power Key + the media commands and app shortcut to activate it once without triggering the mouse movement feature from the numpad.
+ADBridge can act as a toggle (press the Power Key once briefly) and then you can use the mouse from the numpad or the media keys. Alternatively just combine the Power Key + the media commands and app shortcut to activate it once without triggering the mouse movement feature from the numpad (see shortcuts above).
 
 ![enabled](repo-assets/enabled.png)
 ![disabled](repo-assets/disabled.png)
@@ -64,9 +64,12 @@ By default ADBridge creates a config file `~/Documents/adbridgeConfig.json`. The
   "num1": "-a /System/Applications/Utilities/Terminal.app",
   "num2": "-a /Applications/Firefox.app,
   "num3": "-a /Applications/Spotify.app",
-  "num4": "-a /Applications/WhatsApp.app",
-  "num5": "-a /Applications/Telegram.app"
+  "num9": "-a /Applications/WhatsApp.app",
+  "num0": "-a /Applications/Telegram.app"
 }
 ```
 
-Each "num" on the number row can be configured to open an Application (similar to a macOS Dock).
+Each "num" on the number row can be configured to open an Application (similar to a macOS Dock) E.g.:
+
+<kbd>◁&nbsp;&nbsp;&nbsp;</kbd> + <kbd>1</kbd> will open the **Terminal.app**
+or <kbd>◁&nbsp;&nbsp;&nbsp;</kbd> + <kbd>9</kbd> will open the **WhatsApp.app**
