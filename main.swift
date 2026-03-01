@@ -111,6 +111,7 @@ var activeScrolls: Set<Int64> = []
 var scrollTimer: Timer?
 
 var statusItem: NSStatusItem?
+var toastWindow: NSWindow?
 
 var lastClickTime: TimeInterval = 0
 var clickCount: Int64 = 1
@@ -262,6 +263,70 @@ func clickMouse(button: CGMouseButton, isDown: Bool) {
     clickEvent?.setIntegerValueField(.mouseEventClickState, value: clickCount)
     
     clickEvent?.post(tap: .cghidEventTap)
+}
+
+func appDisplayName(from args: [String]) -> String {
+    if let idx = args.firstIndex(of: "-a"), idx + 1 < args.count {
+        let target = args[idx + 1]
+        if target.hasSuffix(".app") {
+            return URL(fileURLWithPath: target).deletingPathExtension().lastPathComponent
+        }
+        return target
+    }
+    return args.first ?? ""
+}
+
+func showAppToast(name: String) {
+    DispatchQueue.main.async {
+        toastWindow?.orderOut(nil)
+
+        let padding: CGFloat = 16
+        let fontSize: CGFloat = 20
+        let font = NSFont.systemFont(ofSize: fontSize, weight: .medium)
+        let textSize = (name as NSString).size(withAttributes: [.font: font])
+        let width = textSize.width + padding * 2
+        let height = textSize.height + padding - 15
+
+        guard let screen = NSScreen.main else { return }
+        let sf = screen.frame
+        let win = NSWindow(
+            contentRect: NSRect(x: sf.midX - width / 2, y: sf.minY + 50, width: width, height: height),
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        win.backgroundColor = .clear
+        win.isOpaque = false
+        win.level = .floating
+        win.ignoresMouseEvents = true
+
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: width, height: height))
+        container.wantsLayer = true
+        container.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.85).cgColor
+        container.layer?.cornerRadius = 8
+
+        let label = NSTextField(labelWithString: name)
+        label.frame = container.bounds
+        label.alignment = .center
+        label.textColor = .white
+        label.font = font
+        container.addSubview(label)
+
+        win.contentView = container
+        win.orderFront(nil)
+        toastWindow = win
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            guard toastWindow === win else { return }
+            NSAnimationContext.runAnimationGroup({ ctx in
+                ctx.duration = 0.5
+                win.animator().alphaValue = 0
+            }, completionHandler: {
+                win.orderOut(nil)
+                if toastWindow === win { toastWindow = nil }
+            })
+        }
+    }
 }
 
 func handleAppOpener(_ processArgs: [String]) {
@@ -440,7 +505,9 @@ let callback: CGEventTapCallBack = { (proxy, type, event, refcon) in
             if type == .keyDown {
                 switch action {
                 case .media(let m): postMediaKey(key: m)
-                case .app(let a): DispatchQueue.global().async { handleAppOpener(a) }
+                case .app(let a):
+                    if keyCode != kNumpad6 { showAppToast(name: appDisplayName(from: a)) }
+                    DispatchQueue.global().async { handleAppOpener(a) }
                 }
             }
             return nil
