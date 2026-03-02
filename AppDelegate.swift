@@ -85,6 +85,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: State
     var appShortcutEnabled = true
+    var mouseFromKeypadEnabled = true
+    var mediaKeysFromNumpadEnabled = true
 
     var toggleActive = false
     var modifierIsHeld = false
@@ -109,7 +111,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     var statusItem: NSStatusItem?
     var toastWindow: NSWindow?
-    weak var appShortcutMenuItem: NSMenuItem?
 
     var cachedDisplayBounds: [CGRect] = []
     var cachedIconFilled: NSImage?
@@ -167,6 +168,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func setupCaches() {
         cachedDisplayBounds = getDisplayBounds()
         let resourcePath = Bundle.main.resourcePath ?? ""
+        // let resourcePath = "app-assets"
         cachedIconFilled = {
             let img = NSImage(contentsOfFile: resourcePath + "/triangle-fill.png")
             img?.isTemplate = true
@@ -231,11 +233,31 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         )
         appShortcutItem.state = appShortcutEnabled ? .on : .off
         appShortcutItem.target = self
-        appShortcutMenuItem = appShortcutItem
+
+        let mouseKeypadItem = NSMenuItem(
+            title: appShortcutEnabled ? "Disable Keypad Mouse" : "Enable Keypad Mouse",
+            action: #selector(toggleMouseFromKeypad(_:)),
+            keyEquivalent: "",
+        )
+        mouseKeypadItem.state = mouseFromKeypadEnabled ? .on : .off
+        mouseKeypadItem.target = self
+
+        let mediaKeysKeypadItem = NSMenuItem(
+            title: mediaKeysFromNumpadEnabled ? "Disable Keypad Media Keys" : "Enable Keypad Media Keys",
+            action: #selector(toggleMediaKeysFromKeypad(_:)),
+            keyEquivalent: "",
+        )
+        mediaKeysKeypadItem.state = mediaKeysFromNumpadEnabled ? .on : .off
+        mediaKeysKeypadItem.target = self
+
         let quitItem = NSMenuItem(title: "Quit ADBridge", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         quitItem.target = NSApp
+
         menu.addItem(appShortcutItem)
+        menu.addItem(mouseKeypadItem)
+        menu.addItem(mediaKeysKeypadItem)
         menu.addItem(quitItem)
+
         statusItem?.menu = menu
     }
 
@@ -263,12 +285,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    // MARK: Menu Action
+    // MARK: Menu Actions
 
     @objc func toggleAppShortcut(_ sender: NSMenuItem) {
         appShortcutEnabled.toggle()
         sender.title = appShortcutEnabled ? "Disable App Shortcut" : "Enable App Shortcut"
         sender.state = appShortcutEnabled ? .on : .off
+    }
+
+    @objc func toggleMouseFromKeypad(_ sender: NSMenuItem) {
+        mouseFromKeypadEnabled.toggle()
+        sender.title = mouseFromKeypadEnabled ? "Disable Keypad Mouse" : "Enable Keypad Mouse"
+        sender.state = mouseFromKeypadEnabled ? .on : .off
+    }
+
+    @objc func toggleMediaKeysFromKeypad(_ sender: NSMenuItem) {
+        mediaKeysFromNumpadEnabled.toggle()
+        sender.title = mediaKeysFromNumpadEnabled ? "Disable Keypad Media Keys" : "Enable Keypad Media Keys"
+        sender.state = mediaKeysFromNumpadEnabled ? .on : .off
     }
 
     // MARK: Status Icon
@@ -339,7 +373,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    // MARK: Deactivate
+    // MARK: Deactivate Toggle
 
     func deactivateToggle() {
         toggleActive = false
@@ -523,61 +557,63 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         if toggleActive {
-            // 2. Handle Clicks
-            if keyCode == leftClick {
-                leftClickIsDown = (type == .keyDown)
-                clickMouse(button: .left, isDown: (type == .keyDown))
-                return nil
-            }
-            if keyCode == rightClick {
-                rightClickIsDown = (type == .keyDown)
-                clickMouse(button: .right, isDown: (type == .keyDown))
-                return nil
-            }
-            if keyCode == middleClick {
-                middleClickIsDown = (type == .keyDown)
-                clickMouse(button: .center, isDown: (type == .keyDown))
-                return nil
-            }
+            if mouseFromKeypadEnabled {
+                // 2. Handle Clicks 
+                if keyCode == leftClick {
+                    leftClickIsDown = (type == .keyDown)
+                    clickMouse(button: .left, isDown: (type == .keyDown))
+                    return nil
+                }
+                if keyCode == rightClick {
+                    rightClickIsDown = (type == .keyDown)
+                    clickMouse(button: .right, isDown: (type == .keyDown))
+                    return nil
+                }
+                if keyCode == middleClick {
+                    middleClickIsDown = (type == .keyDown)
+                    clickMouse(button: .center, isDown: (type == .keyDown))
+                    return nil
+                }
 
-            // 3. Handle Smooth Movement
-            if arrowKeys.contains(keyCode) {
-                if type == .keyDown {
-                    activeArrows.insert(keyCode)
-                    if movementTimer == nil {
-                        movementTimer = Timer.scheduledTimer(withTimeInterval: 1.0/120.0, repeats: true) { [weak self] _ in
-                            self?.updateMouseLoop()
+                // 3. Handle Smooth Movement
+                if arrowKeys.contains(keyCode) {
+                    if type == .keyDown {
+                        activeArrows.insert(keyCode)
+                        if movementTimer == nil {
+                            movementTimer = Timer.scheduledTimer(withTimeInterval: 1.0/120.0, repeats: true) { [weak self] _ in
+                                self?.updateMouseLoop()
+                            }
+                        }
+                    } else if type == .keyUp {
+                        activeArrows.remove(keyCode)
+                        if activeArrows.isEmpty {
+                            movementTimer?.invalidate()
+                            movementTimer = nil
+                            currentVelocity = 0
                         }
                     }
-                } else if type == .keyUp {
-                    activeArrows.remove(keyCode)
-                    if activeArrows.isEmpty {
-                        movementTimer?.invalidate()
-                        movementTimer = nil
-                        currentVelocity = 0
-                    }
+                    return nil
                 }
-                return nil
-            }
 
-            // 4. Handle Scrolling
-            if scrollKeys.contains(keyCode) {
-                if type == .keyDown {
-                    activeScrolls.insert(keyCode)
-                    if scrollTimer == nil {
-                        scrollTimer = Timer.scheduledTimer(withTimeInterval: 1.0/60.0, repeats: true) { [weak self] _ in
-                            self?.updateScrollLoop()
+                // 4. Handle Scrolling
+                if scrollKeys.contains(keyCode) {
+                    if type == .keyDown {
+                        activeScrolls.insert(keyCode)
+                        if scrollTimer == nil {
+                            scrollTimer = Timer.scheduledTimer(withTimeInterval: 1.0/60.0, repeats: true) { [weak self] _ in
+                                self?.updateScrollLoop()
+                            }
+                        }
+                    } else if type == .keyUp {
+                        activeScrolls.remove(keyCode)
+                        if activeScrolls.isEmpty {
+                            scrollTimer?.invalidate()
+                            scrollTimer = nil
+                            scrollVelocity = 0
                         }
                     }
-                } else if type == .keyUp {
-                    activeScrolls.remove(keyCode)
-                    if activeScrolls.isEmpty {
-                        scrollTimer?.invalidate()
-                        scrollTimer = nil
-                        scrollVelocity = 0
-                    }
+                    return nil
                 }
-                return nil
             }
 
             // 5. Handle Media/Apps
@@ -588,11 +624,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 if type == .keyDown {
                     switch action {
                     case .media(let m):
+                        guard mediaKeysFromNumpadEnabled else { return Unmanaged.passUnretained(event) }
                         postMediaKey(key: m)
                     case .app(let a):
                         if modifierPressedWhileActive { modifierUsedForAction = true }
                         if keyCode == kNumpad6 {
-                            DispatchQueue.global().async { handleAppOpener(a) }
+                            if mouseFromKeypadEnabled { DispatchQueue.global().async { handleAppOpener(a) } } else { return Unmanaged.passUnretained(event) }
                         } else if appShortcutEnabled {
                             showAppToast(name: appDisplayName(from: a))
                             DispatchQueue.global().async { handleAppOpener(a) }
