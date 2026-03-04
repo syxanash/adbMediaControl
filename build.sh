@@ -6,7 +6,7 @@ MENU_ICON="triangle.png"
 MENU_ICON_FILL="triangle-fill.png"
 INFO_PLIST_FILE="Info.plist"
 BINARY_NAME="adbridge"
-SOURCE_FILES="main.swift constants.swift utilities.swift"
+SOURCE_FILES="main.swift AppDelegate.swift constants.swift utilities.swift"
 
 killall "$BINARY_NAME" 2>/dev/null
 
