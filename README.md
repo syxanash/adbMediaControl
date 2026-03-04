@@ -21,9 +21,9 @@ ADBridge can act as a toggle (press the Power Key once briefly) and then you can
 ![enabled](repo-assets/enabled.png)
 ![disabled](repo-assets/disabled.png)
 
-You can quit the app by clicking the Triangle menu icon:
+You can toggle various mapping features directly from the menu bar:
 
-![quit](repo-assets/menubar.png)
+![menubar](repo-assets/menubar.png)
 
 ## Setup and Installation
 
