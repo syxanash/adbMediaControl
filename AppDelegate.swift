@@ -2,7 +2,7 @@ import Foundation
 import CoreGraphics
 import AppKit
 
-// MARK: - File-scope Constants
+// MARK: File-scope Constants
 
 private let configFile = "Documents/adbridgeConfig.json"
 private let configURL = FileManager.default.homeDirectoryForCurrentUser
@@ -43,35 +43,38 @@ private let numberRowKeys: Set<Int64> = [numsRows0, numsRows1, numsRows2, numsRo
 private let arrowKeys: Set<Int64>  = [kArrowUp, kArrowDown, kArrowLeft, kArrowRight]
 private let scrollKeys: Set<Int64> = [kScrollUp, kScrollDown, kScrollLeft, kScrollRight]
 
-// MARK: - Key Action Enum
+// MARK: Key Action Enum
 
 enum KeyAction {
     case media(UInt32)
     case app([String])
 }
 
-// MARK: - Config Helpers
+// MARK: Config Helpers
 
 private func createDefaultConfigIfNeeded() {
     guard !FileManager.default.fileExists(atPath: configURL.path) else { return }
     let template = """
     {
       "num1": "-a /Applications/Firefox.app https://simone.computer",
+      "appShortcut": true,
+      "mouseKeypad": true,
+      "mediaKeys": true
     }
     """
     try? template.write(to: configURL, atomically: true, encoding: .utf8)
 }
 
-private func loadConfig() -> [String: String] {
+private func loadConfig() -> [String: Any] {
     createDefaultConfigIfNeeded()
     guard let data = try? Data(contentsOf: configURL),
-          let config = try? JSONDecoder().decode([String: String].self, from: data) else {
+          let config = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
         return [:]
     }
     return config
 }
 
-// MARK: - Event Tap Bridge (file-scope; required by C callback ABI)
+// MARK: Event Tap Bridge (file-scope; required by C callback ABI)
 
 private let eventTapCallback: CGEventTapCallBack = { proxy, type, event, refcon in
     guard let refcon else { return Unmanaged.passUnretained(event) }
@@ -79,7 +82,7 @@ private let eventTapCallback: CGEventTapCallBack = { proxy, type, event, refcon 
     return delegate.handleEvent(proxy: proxy, type: type, event: event)
 }
 
-// MARK: - AppDelegate
+// MARK: AppDelegate
 
 class AppDelegate: NSObject, NSApplicationDelegate {
 
@@ -122,13 +125,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var rightClickIsDown = false
     var middleClickIsDown = false
 
-    let config: [String: String]
+    let config: [String: Any]
     let keyMap: [Int64: KeyAction]
 
     // MARK: Init
 
     override init() {
         config = loadConfig()
+
+        appShortcutEnabled      = config["appShortcut"] as? Bool ?? true
+        mouseFromKeypadEnabled  = config["mouseKeypad"] as? Bool ?? true
+        mediaKeysFromNumpadEnabled = config["mediaKeys"] as? Bool ?? true
 
         var map: [Int64: KeyAction] = [
             kNumpadPlus:  .media(NX_KEYTYPE_SOUND_UP),
@@ -144,8 +151,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             "num7": numsRows7, "num8": numsRows8, "num9": numsRows9,
             "num0": numsRows0,
         ]
-        for (key, args) in config {
-            if let keyCode = numpadKeyCodes[key] {
+        for (key, value) in config {
+            if let args = value as? String, let keyCode = numpadKeyCodes[key] {
                 map[keyCode] = .app(args.components(separatedBy: " "))
             }
         }
@@ -285,24 +292,38 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    // MARK: Config Persistence
+
+    private func saveConfig() {
+        var updated = config
+        updated["appShortcut"] = appShortcutEnabled
+        updated["mouseKeypad"] = mouseFromKeypadEnabled
+        updated["mediaKeys"]   = mediaKeysFromNumpadEnabled
+        guard let data = try? JSONSerialization.data(withJSONObject: updated, options: .prettyPrinted) else { return }
+        try? data.write(to: configURL)
+    }
+
     // MARK: Menu Actions
 
     @objc func toggleAppShortcut(_ sender: NSMenuItem) {
         appShortcutEnabled.toggle()
         sender.title = appShortcutEnabled ? "Disable App Shortcut" : "Enable App Shortcut"
         sender.state = appShortcutEnabled ? .on : .off
+        saveConfig()
     }
 
     @objc func toggleMouseFromKeypad(_ sender: NSMenuItem) {
         mouseFromKeypadEnabled.toggle()
         sender.title = mouseFromKeypadEnabled ? "Disable Keypad Mouse" : "Enable Keypad Mouse"
         sender.state = mouseFromKeypadEnabled ? .on : .off
+        saveConfig()
     }
 
     @objc func toggleMediaKeysFromKeypad(_ sender: NSMenuItem) {
         mediaKeysFromNumpadEnabled.toggle()
         sender.title = mediaKeysFromNumpadEnabled ? "Disable Keypad Media Keys" : "Enable Keypad Media Keys"
         sender.state = mediaKeysFromNumpadEnabled ? .on : .off
+        saveConfig()
     }
 
     // MARK: Status Icon
