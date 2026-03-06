@@ -112,6 +112,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var activeScrolls: Set<Int64> = []
     var scrollTimer: Timer?
 
+    var eventTap: CFMachPort?
     var statusItem: NSStatusItem?
     var toastWindow: NSWindow?
 
@@ -192,7 +193,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let mask = (1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.keyUp.rawValue)
         let selfPtr = Unmanaged.passUnretained(self).toOpaque()
 
-        guard let eventTap = CGEvent.tapCreate(
+        guard let tap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
             place: .headInsertEventTap,
             options: .defaultTap,
@@ -218,9 +219,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             exit(1)
         }
 
-        let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0)
+        eventTap = tap
+        let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
         CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
-        CGEvent.tapEnable(tap: eventTap, enable: true)
+        CGEvent.tapEnable(tap: tap, enable: true)
     }
 
     private func setupStatusBar() {
@@ -524,6 +526,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: Event Handling
 
     func handleEvent(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
+        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            if let tap = eventTap { CGEvent.tapEnable(tap: tap, enable: true) }
+            return nil
+        }
+
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
         let shiftIsHeld = event.flags.contains(.maskShift)
 
