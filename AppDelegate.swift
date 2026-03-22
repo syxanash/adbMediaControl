@@ -92,6 +92,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var appShortcutEnabled = true
     var mouseFromKeypadEnabled = true
     var mediaKeysFromNumpadEnabled = true
+    var cornerTrackpadClickEnabled = true
 
     var toggleActive = false
     var modifierIsHeld = false
@@ -118,6 +119,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var eventTap: CFMachPort?
     var statusItem: NSStatusItem?
     var toastWindow: NSWindow?
+    var trackpadMonitor: TrackpadMonitor?
 
     var cachedDisplayBounds: [CGRect] = []
     var cachedIconFilled: NSImage?
@@ -140,6 +142,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         appShortcutEnabled      = config["appShortcut"] as? Bool ?? true
         mouseFromKeypadEnabled  = config["mouseKeypad"] as? Bool ?? true
         mediaKeysFromNumpadEnabled = config["mediaKeys"] as? Bool ?? true
+        cornerTrackpadClickEnabled = config["cornerTrackpad"] as? Bool ?? true
 
         var map: [Int64: KeyAction] = [
             kNumpadPlus:  .media(NX_KEYTYPE_SOUND_UP),
@@ -173,6 +176,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         setupStatusBar()
         setupMenu()
         setupNotifications()
+        setupTrackpadMonitor()
         showStartupAlert()
     }
 
@@ -262,12 +266,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         mediaKeysKeypadItem.state = mediaKeysFromNumpadEnabled ? .on : .off
         mediaKeysKeypadItem.target = self
 
+        let cornerTrackpadItem = NSMenuItem(
+            title: cornerTrackpadClickEnabled ? "Disable Third Click Trackpad" : "Enable Third Click Trackpad",
+            action: #selector(toggleCornerTrackpad(_:)),
+            keyEquivalent: "",
+        )
+        cornerTrackpadItem.state = cornerTrackpadClickEnabled ? .on : .off
+        cornerTrackpadItem.target = self
+
         let quitItem = NSMenuItem(title: "Quit ADBridge", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         quitItem.target = NSApp
 
         menu.addItem(appShortcutItem)
         menu.addItem(mouseKeypadItem)
         menu.addItem(mediaKeysKeypadItem)
+        menu.addItem(cornerTrackpadItem)
         menu.addItem(quitItem)
 
         statusItem?.menu = menu
@@ -281,6 +294,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ) { [weak self] _ in
             self?.cachedDisplayBounds = getDisplayBounds()
         }
+    }
+
+    private func setupTrackpadMonitor() {
+        let monitor = TrackpadMonitor()
+        monitor.onCornerTap = { [weak self] in
+            self?.clickMouse(button: .center, isDown: true)
+            self?.clickMouse(button: .center, isDown: false)
+        }
+        trackpadMonitor = monitor
+        trackpadMonitor?.enabled = cornerTrackpadClickEnabled
     }
 
     private func showStartupAlert() {
@@ -304,6 +327,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         updated["appShortcut"] = appShortcutEnabled
         updated["mouseKeypad"] = mouseFromKeypadEnabled
         updated["mediaKeys"]   = mediaKeysFromNumpadEnabled
+        updated["cornerTrackpad"] = cornerTrackpadClickEnabled
         guard let data = try? JSONSerialization.data(withJSONObject: updated, options: .prettyPrinted) else { return }
         try? data.write(to: configURL)
     }
@@ -328,6 +352,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         mediaKeysFromNumpadEnabled.toggle()
         sender.title = mediaKeysFromNumpadEnabled ? "Disable Keypad Media Keys" : "Enable Keypad Media Keys"
         sender.state = mediaKeysFromNumpadEnabled ? .on : .off
+        saveConfig()
+    }
+
+    @objc func toggleCornerTrackpad(_ sender: NSMenuItem) {
+        cornerTrackpadClickEnabled.toggle()
+        sender.title = cornerTrackpadClickEnabled ? "Disable Third Click Trackpad" : "Enable Third Click Trackpad"
+        sender.state = cornerTrackpadClickEnabled ? .on : .off
+
+        trackpadMonitor?.enabled = cornerTrackpadClickEnabled
+
         saveConfig()
     }
 
